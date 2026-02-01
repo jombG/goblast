@@ -16,10 +16,12 @@ func main() {
 	debugSymbols := flag.Bool("debug-symbols", false, "print extracted symbols from changed files")
 	debugTests := flag.Bool("debug-tests", false, "print discovered test functions from changed files")
 	debugTypes := flag.Bool("debug-types", false, "print precise type-based usages of changed symbols in tests")
+	strategy := flag.String("strategy", "package-fallback", "test selection strategy: symbol-only, package-fallback, conservative")
+	debugSelection := flag.Bool("debug-selection", false, "print selected tests based on strategy")
 	flag.Parse()
 
 	// Run the tool
-	if err := goblust.Run(*base, *head, *dryRun, *debugSymbols, *debugTests, *debugTypes); err != nil {
+	if err := goblust.Run(*base, *head, *dryRun, *debugSymbols, *debugTests, *debugTypes, *strategy, *debugSelection); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
