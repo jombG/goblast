@@ -8,22 +8,18 @@ import (
 	"strings"
 )
 
-// Run executes the main logic of goblust.
 func Run(base, head string, dryRun bool) error {
-	// Get changed files from git
 	changedFiles, err := getChangedFiles(base, head)
 	if err != nil {
 		return fmt.Errorf("failed to get changed files: %w", err)
 	}
 
-	// Filter for .go files and exclude vendor/
 	goFiles := filterGoFiles(changedFiles)
 	if len(goFiles) == 0 {
 		fmt.Println("No Go files changed. Nothing to test.")
 		return nil
 	}
 
-	// Map files to Go package paths
 	packages, err := mapFilesToPackages(goFiles)
 	if err != nil {
 		return fmt.Errorf("failed to map files to packages: %w", err)
@@ -34,10 +30,8 @@ func Run(base, head string, dryRun bool) error {
 		return nil
 	}
 
-	// Deduplicate packages
 	uniquePackages := deduplicate(packages)
 
-	// Build test command
 	testCmd := buildTestCommand(uniquePackages)
 
 	if dryRun {
@@ -45,11 +39,9 @@ func Run(base, head string, dryRun bool) error {
 		return nil
 	}
 
-	// Execute test command
 	return executeTestCommand(uniquePackages)
 }
 
-// getChangedFiles returns list of changed files between base and head commits.
 func getChangedFiles(base, head string) ([]string, error) {
 	cmd := exec.Command("git", "diff", "--name-only", base, head)
 	output, err := cmd.Output()
@@ -65,15 +57,12 @@ func getChangedFiles(base, head string) ([]string, error) {
 	return lines, nil
 }
 
-// filterGoFiles filters for .go files and excludes vendor/ directory.
 func filterGoFiles(files []string) []string {
 	var goFiles []string
 	for _, file := range files {
-		// Skip vendor directory
 		if strings.HasPrefix(file, "vendor/") || strings.Contains(file, "/vendor/") {
 			continue
 		}
-		// Include only .go files
 		if strings.HasSuffix(file, ".go") {
 			goFiles = append(goFiles, file)
 		}
@@ -81,19 +70,15 @@ func filterGoFiles(files []string) []string {
 	return goFiles
 }
 
-// mapFilesToPackages maps Go files to their package paths using go list.
 func mapFilesToPackages(goFiles []string) ([]string, error) {
 	var packages []string
 
 	for _, file := range goFiles {
-		// Get directory of the file
 		dir := filepath.Dir(file)
 
-		// Use go list to get the package path
 		cmd := exec.Command("go", "list", "-f", "{{.ImportPath}}", "./"+dir)
 		output, err := cmd.Output()
 		if err != nil {
-			// If go list fails, skip this file (might be deleted or not part of a valid package)
 			continue
 		}
 
@@ -106,7 +91,6 @@ func mapFilesToPackages(goFiles []string) ([]string, error) {
 	return packages, nil
 }
 
-// deduplicate removes duplicate package paths.
 func deduplicate(packages []string) []string {
 	seen := make(map[string]bool)
 	var unique []string
@@ -121,13 +105,11 @@ func deduplicate(packages []string) []string {
 	return unique
 }
 
-// buildTestCommand builds the go test command string for display.
 func buildTestCommand(packages []string) string {
 	args := append([]string{"go", "test"}, packages...)
 	return strings.Join(args, " ")
 }
 
-// executeTestCommand runs go test with the specified packages.
 func executeTestCommand(packages []string) error {
 	cmd := exec.Command("go", "test", packages[0])
 	if len(packages) > 1 {
