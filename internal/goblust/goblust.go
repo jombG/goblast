@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"jombG/goblast/internal/symbols"
+	"jombG/goblast/internal/tests"
 )
 
-func Run(base, head string, dryRun, debugSymbols bool) error {
+func Run(base, head string, dryRun, debugSymbols, debugTests bool) error {
 	var changedFiles []string
 
 	committedFiles, err := getChangedFiles(base, head)
@@ -39,6 +40,14 @@ func Run(base, head string, dryRun, debugSymbols bool) error {
 			return fmt.Errorf("failed to extract symbols: %w", err)
 		}
 		fmt.Println(symbols.FormatSymbols(extractedSymbols))
+	}
+
+	if debugTests {
+		discoveredTests, err := tests.DiscoverFromFiles(goFiles)
+		if err != nil {
+			return fmt.Errorf("failed to discover tests: %w", err)
+		}
+		fmt.Println(tests.FormatTests(discoveredTests))
 	}
 
 	packages, err := mapFilesToPackages(goFiles)
