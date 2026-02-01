@@ -17,6 +17,45 @@ type Test struct {
 	Position string
 }
 
+func DiscoverFromPackages(packages []string) ([]Test, error) {
+	var allTests []Test
+
+	for _, pkg := range packages {
+		testFiles, err := findTestFilesInPackage(pkg)
+		if err != nil {
+			continue
+		}
+
+		for _, file := range testFiles {
+			tests, err := discoverFromFile(file)
+			if err != nil {
+				continue
+			}
+			allTests = append(allTests, tests...)
+		}
+	}
+
+	return allTests, nil
+}
+
+func findTestFilesInPackage(packagePath string) ([]string, error) {
+	cmd := exec.Command("go", "list", "-f", "{{.Dir}}", packagePath)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	dir := strings.TrimSpace(string(output))
+
+	pattern := filepath.Join(dir, "*_test.go")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	return matches, nil
+}
+
 func DiscoverFromFiles(files []string) ([]Test, error) {
 	var allTests []Test
 
