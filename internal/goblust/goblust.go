@@ -42,14 +42,6 @@ func Run(base, head string, dryRun, debugSymbols, debugTests bool) error {
 		fmt.Println(symbols.FormatSymbols(extractedSymbols))
 	}
 
-	if debugTests {
-		discoveredTests, err := tests.DiscoverFromFiles(goFiles)
-		if err != nil {
-			return fmt.Errorf("failed to discover tests: %w", err)
-		}
-		fmt.Println(tests.FormatTests(discoveredTests))
-	}
-
 	packages, err := mapFilesToPackages(goFiles)
 	if err != nil {
 		return fmt.Errorf("failed to map files to packages: %w", err)
@@ -61,6 +53,14 @@ func Run(base, head string, dryRun, debugSymbols, debugTests bool) error {
 	}
 
 	uniquePackages := deduplicate(packages)
+
+	if debugTests {
+		discoveredTests, err := tests.DiscoverFromPackages(uniquePackages)
+		if err != nil {
+			return fmt.Errorf("failed to discover tests: %w", err)
+		}
+		fmt.Println(tests.FormatTests(discoveredTests))
+	}
 
 	testCmd := buildTestCommand(uniquePackages)
 
