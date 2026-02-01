@@ -13,10 +13,11 @@ func main() {
 	base := flag.String("base", "main", "base branch for comparison (default: main)")
 	head := flag.String("head", "HEAD", "head commit for comparison")
 	dryRun := flag.Bool("dry-run", false, "print test command without executing")
+	debugSymbols := flag.Bool("debug-symbols", false, "print extracted symbols from changed files")
 	flag.Parse()
 
 	// Run the tool
-	if err := goblust.Run(*base, *head, *dryRun); err != nil {
+	if err := goblust.Run(*base, *head, *dryRun, *debugSymbols); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

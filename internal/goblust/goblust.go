@@ -6,32 +6,39 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"jombG/goblast/internal/symbols"
 )
 
-func Run(base, head string, dryRun bool) error {
+func Run(base, head string, dryRun, debugSymbols bool) error {
 	var changedFiles []string
 
-	// Get changed files from base..head comparison
 	committedFiles, err := getChangedFiles(base, head)
 	if err != nil {
 		return fmt.Errorf("failed to get changed files: %w", err)
 	}
 	changedFiles = append(changedFiles, committedFiles...)
 
-	// Additionally get uncommitted files
 	uncommittedFiles, err := getUncommittedFiles()
 	if err != nil {
 		return fmt.Errorf("failed to get uncommitted files: %w", err)
 	}
 	changedFiles = append(changedFiles, uncommittedFiles...)
 
-	// Deduplicate files in case there are overlaps
 	changedFiles = deduplicateFiles(changedFiles)
 
 	goFiles := filterGoFiles(changedFiles)
 	if len(goFiles) == 0 {
 		fmt.Println("No Go files changed. Nothing to test.")
 		return nil
+	}
+
+	if debugSymbols {
+		extractedSymbols, err := symbols.ExtractFromFiles(goFiles)
+		if err != nil {
+			return fmt.Errorf("failed to extract symbols: %w", err)
+		}
+		fmt.Println(symbols.FormatSymbols(extractedSymbols))
 	}
 
 	packages, err := mapFilesToPackages(goFiles)
