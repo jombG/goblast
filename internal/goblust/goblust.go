@@ -8,8 +8,16 @@ import (
 	"strings"
 )
 
-func Run(base, head string, dryRun bool) error {
-	changedFiles, err := getChangedFiles(base, head)
+func Run(base, head string, uncommitted, dryRun bool) error {
+	var changedFiles []string
+	var err error
+
+	if uncommitted {
+		changedFiles, err = getUncommittedFiles()
+	} else {
+		changedFiles, err = getChangedFiles(base, head)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to get changed files: %w", err)
 	}
@@ -44,6 +52,22 @@ func Run(base, head string, dryRun bool) error {
 
 func getChangedFiles(base, head string) ([]string, error) {
 	cmd := exec.Command("git", "diff", "--name-only", base, head)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git diff failed: %w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		return []string{}, nil
+	}
+
+	return lines, nil
+}
+
+func getUncommittedFiles() ([]string, error) {
+	// Get both staged and unstaged changes
+	cmd := exec.Command("git", "diff", "--name-only", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git diff failed: %w", err)
