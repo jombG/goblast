@@ -14,6 +14,7 @@ type Test struct {
 	Package  string
 	Name     string
 	FileName string
+	FilePath string
 	Position string
 }
 
@@ -141,6 +142,7 @@ func extractTest(decl *ast.FuncDecl, packagePath string, fset *token.FileSet, fi
 		Package:  packagePath,
 		Name:     decl.Name.Name,
 		FileName: filepath.Base(filePath),
+		FilePath: filePath,
 		Position: fmt.Sprintf("%s:%d", filepath.Base(filePath), pos.Line),
 	}
 }

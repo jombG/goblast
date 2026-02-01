@@ -9,9 +9,10 @@ import (
 
 	"jombG/goblast/internal/symbols"
 	"jombG/goblast/internal/tests"
+	"jombG/goblast/internal/usage"
 )
 
-func Run(base, head string, dryRun, debugSymbols, debugTests bool) error {
+func Run(base, head string, dryRun, debugSymbols, debugTests, debugUsage bool) error {
 	var changedFiles []string
 
 	committedFiles, err := getChangedFiles(base, head)
@@ -34,12 +35,17 @@ func Run(base, head string, dryRun, debugSymbols, debugTests bool) error {
 		return nil
 	}
 
-	if debugSymbols {
-		extractedSymbols, err := symbols.ExtractFromFiles(goFiles)
+	// Extract symbols from changed files (needed for both debug-symbols and debug-usage)
+	var extractedSymbols []symbols.Symbol
+	if debugSymbols || debugUsage {
+		var err error
+		extractedSymbols, err = symbols.ExtractFromFiles(goFiles)
 		if err != nil {
 			return fmt.Errorf("failed to extract symbols: %w", err)
 		}
-		fmt.Println(symbols.FormatSymbols(extractedSymbols))
+		if debugSymbols {
+			fmt.Println(symbols.FormatSymbols(extractedSymbols))
+		}
 	}
 
 	packages, err := mapFilesToPackages(goFiles)
@@ -54,12 +60,26 @@ func Run(base, head string, dryRun, debugSymbols, debugTests bool) error {
 
 	uniquePackages := deduplicate(packages)
 
-	if debugTests {
-		discoveredTests, err := tests.DiscoverFromPackages(uniquePackages)
+	// Discover tests from packages (needed for both debug-tests and debug-usage)
+	var discoveredTests []tests.Test
+	if debugTests || debugUsage {
+		var err error
+		discoveredTests, err = tests.DiscoverFromPackages(uniquePackages)
 		if err != nil {
 			return fmt.Errorf("failed to discover tests: %w", err)
 		}
-		fmt.Println(tests.FormatTests(discoveredTests))
+		if debugTests {
+			fmt.Println(tests.FormatTests(discoveredTests))
+		}
+	}
+
+	// Detect usages of changed symbols in tests
+	if debugUsage {
+		detectedUsages, err := usage.DetectUsages(discoveredTests, extractedSymbols)
+		if err != nil {
+			return fmt.Errorf("failed to detect usages: %w", err)
+		}
+		fmt.Println(usage.FormatUsages(detectedUsages))
 	}
 
 	testCmd := buildTestCommand(uniquePackages)
