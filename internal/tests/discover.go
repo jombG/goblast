@@ -149,7 +149,16 @@ func extractTest(decl *ast.FuncDecl, packagePath string, fset *token.FileSet, fi
 
 func getPackageImportPath(filePath string) string {
 	dir := filepath.Dir(filePath)
-	cmd := exec.Command("go", "list", "-f", "{{.ImportPath}}", "./"+dir)
+
+	// Determine the correct path format for go list
+	var listPath string
+	if filepath.IsAbs(dir) {
+		listPath = dir
+	} else {
+		listPath = "./" + dir
+	}
+
+	cmd := exec.Command("go", "list", "-f", "{{.ImportPath}}", listPath)
 	output, err := cmd.Output()
 	if err != nil {
 		// Fallback to directory name

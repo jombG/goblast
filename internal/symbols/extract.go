@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -40,12 +41,13 @@ func extractFromFile(filePath string) ([]Symbol, error) {
 	}
 
 	var symbols []Symbol
-	packageName := node.Name.Name
+	// Get full package import path instead of just the package name
+	packagePath := getPackageImportPath(filePath)
 
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch decl := n.(type) {
 		case *ast.FuncDecl:
-			symbol := extractFunction(decl, packageName, fset, filePath)
+			symbol := extractFunction(decl, packagePath, fset, filePath)
 			if symbol != nil {
 				symbols = append(symbols, *symbol)
 			}
@@ -55,7 +57,7 @@ func extractFromFile(filePath string) ([]Symbol, error) {
 			if decl.Tok == token.TYPE {
 				for _, spec := range decl.Specs {
 					if typeSpec, ok := spec.(*ast.TypeSpec); ok {
-						symbol := extractType(typeSpec, packageName, fset, filePath)
+						symbol := extractType(typeSpec, packagePath, fset, filePath)
 						if symbol != nil {
 							symbols = append(symbols, *symbol)
 						}
@@ -124,6 +126,27 @@ func extractType(spec *ast.TypeSpec, pkgName string, fset *token.FileSet, filePa
 	}
 
 	return symbol
+}
+
+// getPackageImportPath gets the full import path for a file's package
+func getPackageImportPath(filePath string) string {
+	dir := filepath.Dir(filePath)
+
+	// Determine the correct path format for go list
+	var listPath string
+	if filepath.IsAbs(dir) {
+		listPath = dir
+	} else {
+		listPath = "./" + dir
+	}
+
+	cmd := exec.Command("go", "list", "-f", "{{.ImportPath}}", listPath)
+	output, err := cmd.Output()
+	if err != nil {
+		// Fallback to directory name
+		return filepath.Base(dir)
+	}
+	return strings.TrimSpace(string(output))
 }
 
 func FormatSymbols(symbols []Symbol) string {
