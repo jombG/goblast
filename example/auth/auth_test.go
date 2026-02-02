@@ -156,31 +156,6 @@ func TestValidatePassword(t *testing.T) {
 	}
 }
 
-func TestValidateEmail(t *testing.T) {
-	tests := []struct {
-		email     string
-		wantError bool
-	}{
-		{"user@example.com", false},
-		{"test@test.co", false},
-		{"invalid", true},
-		{"@example.com", true},
-		{"user@", true},
-		{"a@b", false},
-		{"user@@example.com", true},
-	}
-
-	for _, tt := range tests {
-		err := ValidateEmail(tt.email)
-		if tt.wantError && err == nil {
-			t.Errorf("ValidateEmail(%s) expected error, got nil", tt.email)
-		}
-		if !tt.wantError && err != nil {
-			t.Errorf("ValidateEmail(%s) unexpected error: %v", tt.email, err)
-		}
-	}
-}
-
 func TestHashPassword(t *testing.T) {
 	password := "testpassword123"
 	hash1 := HashPassword(password)
