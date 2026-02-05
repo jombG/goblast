@@ -18,7 +18,7 @@ func Divide(a, b int) int {
 	return a / b
 }
 
-func AddPriceProdcut(pr1, pr2 shop.Product) shop.Product {
+func AddPriceProduct(pr1, pr2 shop.Product) shop.Product {
 	pr1.AddPrice(pr2.Price)
 	return pr1
 }

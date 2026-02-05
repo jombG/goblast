@@ -22,21 +22,21 @@ func TestSubtract(t *testing.T) {
 	}
 }
 
-func TestAddPriceProdcut(t *testing.T) {
+func TestAddPriceProduct(t *testing.T) {
 	pr1 := shop.Product{ID: 1, Name: "Product 1", Price: 100.0, Stock: 10}
 	pr2 := shop.Product{ID: 2, Name: "Product 2", Price: 50.0, Stock: 5}
 
-	result := AddPriceProdcut(pr1, pr2)
+	result := AddPriceProduct(pr1, pr2)
 
 	expected := 150.0
 	if result.Price != expected {
-		t.Errorf("AddPriceProdcut() price = %.2f; want %.2f", result.Price, expected)
+		t.Errorf("AddPriceProduct() price = %.2f; want %.2f", result.Price, expected)
 	}
 
 	if result.ID != pr1.ID {
-		t.Errorf("AddPriceProdcut() ID = %d; want %d", result.ID, pr1.ID)
+		t.Errorf("AddPriceProduct() ID = %d; want %d", result.ID, pr1.ID)
 	}
 	if result.Name != pr1.Name {
-		t.Errorf("AddPriceProdcut() Name = %s; want %s", result.Name, pr1.Name)
+		t.Errorf("AddPriceProduct() Name = %s; want %s", result.Name, pr1.Name)
 	}
 }
