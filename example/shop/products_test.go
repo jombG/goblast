@@ -126,6 +126,35 @@ func TestCalculateDiscount(t *testing.T) {
 	}
 }
 
+func TestAddPrice(t *testing.T) {
+	tests := []struct {
+		name          string
+		initialPrice  float64
+		addPrice      float64
+		expectedPrice float64
+	}{
+		{"add positive price", 100.0, 50.0, 150.0},
+		{"add zero", 100.0, 0.0, 100.0},
+		{"add negative price", 100.0, -30.0, 70.0},
+		{"add to zero price", 0.0, 25.0, 25.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			product := &Product{
+				ID:    1,
+				Name:  "Test Product",
+				Price: tt.initialPrice,
+				Stock: 10,
+			}
+			product.AddPrice(tt.addPrice)
+			if product.Price != tt.expectedPrice {
+				t.Errorf("expected price %.2f, got %.2f", tt.expectedPrice, product.Price)
+			}
+		})
+	}
+}
+
 func TestFormatPrice(t *testing.T) {
 	tests := []struct {
 		price    float64
