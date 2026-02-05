@@ -63,17 +63,13 @@ func Run(base, head string, dryRun, debugFiles, debugSymbols, debugTests, debugT
 
 	uniquePackages := deduplicate(packages)
 
-	// Find packages that depend on changed packages (importers)
 	dependentPackages, err := findDependentPackages(uniquePackages)
 	if err != nil {
-		// Non-fatal: continue with just the direct packages
 		dependentPackages = []string{}
 	}
 
-	// Combine direct packages and dependent packages for test discovery
 	allPackagesToTest := deduplicate(append(uniquePackages, dependentPackages...))
 
-	// Discover tests from packages (always needed for selection)
 	discoveredTests, err := tests.DiscoverFromPackages(allPackagesToTest)
 	if err != nil {
 		return fmt.Errorf("failed to discover tests: %w", err)
@@ -198,12 +194,12 @@ func deduplicateFiles(files []string) []string {
 }
 
 func deduplicate(packages []string) []string {
-	seen := make(map[string]bool)
+	seen := make(map[string]struct{})
 	var unique []string
 
 	for _, pkg := range packages {
-		if !seen[pkg] {
-			seen[pkg] = true
+		if _, ok := seen[pkg]; !ok {
+			seen[pkg] = struct{}{}
 			unique = append(unique, pkg)
 		}
 	}
@@ -286,7 +282,6 @@ func findDependentPackages(changedPackages []string) ([]string, error) {
 		return nil, nil
 	}
 
-	// Get all packages in the module
 	cmd := exec.Command("go", "list", "./...")
 	output, err := cmd.Output()
 	if err != nil {
@@ -298,20 +293,18 @@ func findDependentPackages(changedPackages []string) ([]string, error) {
 		return nil, nil
 	}
 
-	changedSet := make(map[string]bool)
+	changedSet := make(map[string]struct{})
 	for _, pkg := range changedPackages {
-		changedSet[pkg] = true
+		changedSet[pkg] = struct{}{}
 	}
 
 	var dependentPackages []string
 
 	for _, pkg := range allPackages {
-		// Skip if this is one of the changed packages
-		if changedSet[pkg] {
+		if _, ok := changedSet[pkg]; ok {
 			continue
 		}
 
-		// Get imports of this package
 		cmd := exec.Command("go", "list", "-f", "{{range .Imports}}{{.}}\n{{end}}{{range .TestImports}}{{.}}\n{{end}}", pkg)
 		output, err := cmd.Output()
 		if err != nil {
@@ -320,7 +313,7 @@ func findDependentPackages(changedPackages []string) ([]string, error) {
 
 		imports := strings.Split(strings.TrimSpace(string(output)), "\n")
 		for _, imp := range imports {
-			if changedSet[imp] {
+			if _, ok := changedSet[imp]; ok {
 				dependentPackages = append(dependentPackages, pkg)
 				break
 			}
