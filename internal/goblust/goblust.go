@@ -43,7 +43,6 @@ func Run(base, head string, dryRun, debugFiles, debugSymbols, debugTests, debugT
 		return nil
 	}
 
-	// Extract symbols from changed files (always needed for selection)
 	extractedSymbols, err := symbols.ExtractFromFiles(goFiles)
 	if err != nil {
 		return fmt.Errorf("failed to extract symbols: %w", err)

@@ -41,7 +41,6 @@ func extractFromFile(filePath string) ([]Symbol, error) {
 	}
 
 	var symbols []Symbol
-	// Get full package import path instead of just the package name
 	packagePath := getPackageImportPath(filePath)
 
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -128,11 +127,9 @@ func extractType(spec *ast.TypeSpec, pkgName string, fset *token.FileSet, filePa
 	return symbol
 }
 
-// getPackageImportPath gets the full import path for a file's package
 func getPackageImportPath(filePath string) string {
 	dir := filepath.Dir(filePath)
 
-	// Determine the correct path format for go list
 	var listPath string
 	if filepath.IsAbs(dir) {
 		listPath = dir
@@ -143,7 +140,6 @@ func getPackageImportPath(filePath string) string {
 	cmd := exec.Command("go", "list", "-f", "{{.ImportPath}}", listPath)
 	output, err := cmd.Output()
 	if err != nil {
-		// Fallback to directory name
 		return filepath.Base(dir)
 	}
 	return strings.TrimSpace(string(output))
