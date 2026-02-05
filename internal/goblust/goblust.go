@@ -13,7 +13,7 @@ import (
 	"jombG/goblast/internal/usage"
 )
 
-func Run(base, head string, dryRun, debugSymbols, debugTests, debugTypes bool, strategyName string, debugSelection bool) error {
+func Run(base, head string, dryRun, debugFiles, debugSymbols, debugTests, debugTypes bool, strategyName string, debugSelection bool) error {
 	var changedFiles []string
 
 	committedFiles, err := getChangedFiles(base, head)
@@ -31,6 +31,13 @@ func Run(base, head string, dryRun, debugSymbols, debugTests, debugTypes bool, s
 	changedFiles = deduplicateFiles(changedFiles)
 
 	goFiles := filterGoFiles(changedFiles)
+	if debugFiles {
+		fmt.Println("Affected Go files:")
+		for _, f := range goFiles {
+			fmt.Printf("  %s\n", f)
+		}
+		fmt.Println()
+	}
 	if len(goFiles) == 0 {
 		fmt.Println("No Go files changed. Nothing to test.")
 		return nil
@@ -168,12 +175,12 @@ func mapFilesToPackages(goFiles []string) ([]string, error) {
 }
 
 func deduplicateFiles(files []string) []string {
-	seen := make(map[string]bool)
+	seen := make(map[string]struct{})
 	var unique []string
 
 	for _, file := range files {
-		if !seen[file] {
-			seen[file] = true
+		if _, ok := seen[file]; !ok {
+			seen[file] = struct{}{}
 			unique = append(unique, file)
 		}
 	}
