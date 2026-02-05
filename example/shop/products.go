@@ -13,6 +13,10 @@ type Product struct {
 	Stock int
 }
 
+func (p *Product) AddPrice(price float64) {
+	p.Price += price
+}
+
 // ProductService handles product operations
 type ProductService struct {
 	products map[int]*Product
