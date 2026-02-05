@@ -8,19 +8,16 @@ import (
 	"jombG/goblast/internal/usage"
 )
 
-// TestID uniquely identifies a test for execution
 type TestID struct {
 	Package  string
 	TestName string
 }
 
-// Strategy defines how to select tests based on changes and usages
 type Strategy interface {
 	Name() string
 	Select(changedSymbols []symbols.Symbol, discoveredTests []tests.Test, usages []usage.Usage) []TestID
 }
 
-// GetStrategy returns a strategy by name
 func GetStrategy(name string) (Strategy, error) {
 	switch name {
 	case "symbol-only":
@@ -34,7 +31,6 @@ func GetStrategy(name string) (Strategy, error) {
 	}
 }
 
-// SymbolOnlyStrategy runs only tests that directly use changed symbols
 type SymbolOnlyStrategy struct{}
 
 func (s *SymbolOnlyStrategy) Name() string {
@@ -44,10 +40,8 @@ func (s *SymbolOnlyStrategy) Name() string {
 func (s *SymbolOnlyStrategy) Select(changedSymbols []symbols.Symbol, discoveredTests []tests.Test, usages []usage.Usage) []TestID {
 	var selected []TestID
 
-	// Build a set of tests that use changed symbols
-	testSet := make(map[string]map[string]bool) // pkg -> testName -> exists
+	testSet := make(map[string]map[string]bool)
 	for _, u := range usages {
-		// Extract package from test
 		pkg := findTestPackage(u.TestName, discoveredTests)
 		if pkg == "" {
 			continue
@@ -58,7 +52,6 @@ func (s *SymbolOnlyStrategy) Select(changedSymbols []symbols.Symbol, discoveredT
 		testSet[pkg][u.TestName] = true
 	}
 
-	// Convert to TestID list
 	for pkg, tests := range testSet {
 		for testName := range tests {
 			selected = append(selected, TestID{
@@ -71,8 +64,6 @@ func (s *SymbolOnlyStrategy) Select(changedSymbols []symbols.Symbol, discoveredT
 	return selected
 }
 
-// PackageFallbackStrategy runs tests that use changed symbols,
-// or all tests in a package if no specific usage detected but package changed
 type PackageFallbackStrategy struct{}
 
 func (s *PackageFallbackStrategy) Name() string {
@@ -129,7 +120,6 @@ func (s *PackageFallbackStrategy) Select(changedSymbols []symbols.Symbol, discov
 	return deduplicateTestIDs(selected)
 }
 
-// ConservativeStrategy runs all tests in all packages with changes
 type ConservativeStrategy struct{}
 
 func (s *ConservativeStrategy) Name() string {
@@ -139,15 +129,13 @@ func (s *ConservativeStrategy) Name() string {
 func (s *ConservativeStrategy) Select(changedSymbols []symbols.Symbol, discoveredTests []tests.Test, usages []usage.Usage) []TestID {
 	var selected []TestID
 
-	// Collect all packages with changes
-	changedPackages := make(map[string]bool)
+	changedPackages := make(map[string]struct{})
 	for _, sym := range changedSymbols {
-		changedPackages[sym.Package] = true
+		changedPackages[sym.Package] = struct{}{}
 	}
 
-	// Run all tests in changed packages
 	for _, test := range discoveredTests {
-		if changedPackages[test.Package] {
+		if _, ok := changedPackages[test.Package]; ok {
 			selected = append(selected, TestID{
 				Package:  test.Package,
 				TestName: test.Name,
@@ -157,8 +145,6 @@ func (s *ConservativeStrategy) Select(changedSymbols []symbols.Symbol, discovere
 
 	return deduplicateTestIDs(selected)
 }
-
-// Helper functions
 
 func findTestPackage(testName string, tests []tests.Test) string {
 	for _, test := range tests {
@@ -184,7 +170,6 @@ func deduplicateTestIDs(ids []TestID) []TestID {
 	return unique
 }
 
-// FormatSelection formats selected tests for display
 func FormatSelection(strategy string, selected []TestID) string {
 	if len(selected) == 0 {
 		return fmt.Sprintf("\n=== Test Selection (%s) ===\n\nNo tests selected.\n", strategy)
