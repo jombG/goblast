@@ -130,13 +130,12 @@ func detectUsagesInPackage(pkgPath string, pkgTests []tests.Test, symbolObjects 
 		return nil, err
 	}
 
-	// Find the test package (has _test suffix or contains test files in Syntax)
 	var testPkg *packages.Package
 	for _, pkg := range pkgs {
 		if pkg.TypesInfo == nil {
 			continue
 		}
-		// Check if this package has test files
+
 		hasTestFiles := false
 		for _, file := range pkg.Syntax {
 			fileName := filepath.Base(pkg.Fset.File(file.Pos()).Name())
@@ -151,7 +150,7 @@ func detectUsagesInPackage(pkgPath string, pkgTests []tests.Test, symbolObjects 
 		}
 	}
 
-	// Fallback: use any package with TypesInfo
+	// Fallback: use any package with type info
 	if testPkg == nil {
 		for _, pkg := range pkgs {
 			if pkg.TypesInfo != nil {
@@ -213,7 +212,6 @@ func findUsagesInTest(pkg *packages.Package, test tests.Test, changedSymbols []s
 		return usages
 	}
 
-	// Build a lookup map by symbol key (package + name + kind) for cross-package matching
 	symbolLookup := make(map[string]symbols.Symbol)
 	for _, sym := range changedSymbols {
 		key := makeSymbolKey(sym)

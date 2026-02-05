@@ -78,7 +78,6 @@ func Run(base, head string, dryRun, debugFiles, debugSymbols, debugTests, debugT
 		fmt.Println(tests.FormatTests(discoveredTests))
 	}
 
-	// Detect usages of changed symbols in tests (always needed for selection)
 	detectedUsages, err := usage.DetectUsages(discoveredTests, extractedSymbols)
 	if err != nil {
 		return fmt.Errorf("failed to detect usages: %w", err)
@@ -87,7 +86,6 @@ func Run(base, head string, dryRun, debugFiles, debugSymbols, debugTests, debugT
 		fmt.Println(usage.FormatUsages(detectedUsages))
 	}
 
-	// Apply selection strategy
 	strategy, err := selector.GetStrategy(strategyName)
 	if err != nil {
 		return fmt.Errorf("failed to get strategy: %w", err)
