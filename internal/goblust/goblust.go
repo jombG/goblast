@@ -261,7 +261,8 @@ func executeSelectedTests(selected []selector.TestID) error {
 		byPackage[test.Package] = append(byPackage[test.Package], test.TestName)
 	}
 
-	// Execute tests for each package
+	// Execute tests for each package, collecting errors
+	var failedPackages []string
 	for pkg, testNames := range byPackage {
 		testPattern := "^(" + strings.Join(testNames, "|") + ")$"
 
@@ -270,8 +271,12 @@ func executeSelectedTests(selected []selector.TestID) error {
 		cmd.Stderr = os.Stderr
 
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("go test failed for package %s: %w", pkg, err)
+			failedPackages = append(failedPackages, pkg)
 		}
+	}
+
+	if len(failedPackages) > 0 {
+		return fmt.Errorf("go test failed for packages: %s", strings.Join(failedPackages, ", "))
 	}
 
 	return nil
