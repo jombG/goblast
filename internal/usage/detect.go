@@ -130,11 +130,34 @@ func detectUsagesInPackage(pkgPath string, pkgTests []tests.Test, symbolObjects 
 		return nil, err
 	}
 
+	// Find the test package (has _test suffix or contains test files in Syntax)
 	var testPkg *packages.Package
 	for _, pkg := range pkgs {
-		if pkg.TypesInfo != nil {
+		if pkg.TypesInfo == nil {
+			continue
+		}
+		// Check if this package has test files
+		hasTestFiles := false
+		for _, file := range pkg.Syntax {
+			fileName := filepath.Base(pkg.Fset.File(file.Pos()).Name())
+			if strings.HasSuffix(fileName, "_test.go") {
+				hasTestFiles = true
+				break
+			}
+		}
+		if hasTestFiles {
 			testPkg = pkg
 			break
+		}
+	}
+
+	// Fallback: use any package with TypesInfo
+	if testPkg == nil {
+		for _, pkg := range pkgs {
+			if pkg.TypesInfo != nil {
+				testPkg = pkg
+				break
+			}
 		}
 	}
 
@@ -143,19 +166,28 @@ func detectUsagesInPackage(pkgPath string, pkgTests []tests.Test, symbolObjects 
 	}
 
 	for _, test := range pkgTests {
-		testUsages := findUsagesInTest(testPkg, test, symbolObjects)
+		testUsages := findUsagesInTest(testPkg, test, changedSymbols)
 		usages = append(usages, testUsages...)
 	}
 
 	return usages, nil
 }
 
-func findUsagesInTest(pkg *packages.Package, test tests.Test, symbolObjects map[types.Object]symbols.Symbol) []Usage {
+func findUsagesInTest(pkg *packages.Package, test tests.Test, changedSymbols []symbols.Symbol) []Usage {
 	var usages []Usage
+
+	if debugUsageDetection {
+		fmt.Printf("findUsagesInTest: pkg=%s, test=%s, file=%s, changedSymbols=%d\n",
+			pkg.PkgPath, test.Name, test.FileName, len(changedSymbols))
+	}
 
 	var testFunc *ast.FuncDecl
 	for _, file := range pkg.Syntax {
-		if filepath.Base(pkg.Fset.File(file.Pos()).Name()) != test.FileName {
+		fileName := filepath.Base(pkg.Fset.File(file.Pos()).Name())
+		if debugUsageDetection {
+			fmt.Printf("  checking file: %s vs %s\n", fileName, test.FileName)
+		}
+		if fileName != test.FileName {
 			continue
 		}
 
@@ -175,14 +207,31 @@ func findUsagesInTest(pkg *packages.Package, test tests.Test, symbolObjects map[
 	}
 
 	if testFunc == nil || testFunc.Body == nil {
+		if debugUsageDetection {
+			fmt.Printf("  testFunc not found or no body\n")
+		}
 		return usages
+	}
+
+	// Build a lookup map by symbol key (package + name + kind) for cross-package matching
+	symbolLookup := make(map[string]symbols.Symbol)
+	for _, sym := range changedSymbols {
+		key := makeSymbolKey(sym)
+		symbolLookup[key] = sym
+	}
+
+	if debugUsageDetection {
+		fmt.Printf("Checking test %s, symbolLookup keys:\n", test.Name)
+		for k := range symbolLookup {
+			fmt.Printf("  - %s\n", k)
+		}
 	}
 
 	ast.Inspect(testFunc.Body, func(n ast.Node) bool {
 		switch node := n.(type) {
 		case *ast.Ident:
 			if obj := pkg.TypesInfo.Uses[node]; obj != nil {
-				if sym, found := symbolObjects[obj]; found {
+				if sym, found := matchSymbol(obj, symbolLookup); found {
 					usages = append(usages, Usage{
 						TestName:   test.Name,
 						TestFile:   test.Position,
@@ -194,7 +243,7 @@ func findUsagesInTest(pkg *packages.Package, test tests.Test, symbolObjects map[
 		case *ast.SelectorExpr:
 			if sel := pkg.TypesInfo.Selections[node]; sel != nil {
 				if obj := sel.Obj(); obj != nil {
-					if sym, found := symbolObjects[obj]; found {
+					if sym, found := matchSymbol(obj, symbolLookup); found {
 						usages = append(usages, Usage{
 							TestName:   test.Name,
 							TestFile:   test.Position,
@@ -205,7 +254,7 @@ func findUsagesInTest(pkg *packages.Package, test tests.Test, symbolObjects map[
 				}
 			}
 			if obj := pkg.TypesInfo.Uses[node.Sel]; obj != nil {
-				if sym, found := symbolObjects[obj]; found {
+				if sym, found := matchSymbol(obj, symbolLookup); found {
 					usages = append(usages, Usage{
 						TestName:   test.Name,
 						TestFile:   test.Position,
@@ -219,6 +268,50 @@ func findUsagesInTest(pkg *packages.Package, test tests.Test, symbolObjects map[
 	})
 
 	return deduplicateUsages(usages)
+}
+
+func makeSymbolKey(sym symbols.Symbol) string {
+	return fmt.Sprintf("%s::%s::%s", sym.Package, sym.Name, sym.Kind)
+}
+
+var debugUsageDetection = false
+
+func matchSymbol(obj types.Object, lookup map[string]symbols.Symbol) (symbols.Symbol, bool) {
+	if obj == nil {
+		return symbols.Symbol{}, false
+	}
+
+	objPkg := ""
+	if obj.Pkg() != nil {
+		objPkg = obj.Pkg().Path()
+	}
+
+	// Determine kind
+	var kind string
+	switch o := obj.(type) {
+	case *types.Func:
+		if sig, ok := o.Type().(*types.Signature); ok && sig.Recv() != nil {
+			kind = "method"
+		} else {
+			kind = "func"
+		}
+	case *types.TypeName:
+		kind = "type"
+	default:
+		if debugUsageDetection {
+			fmt.Printf("  [skip] %s.%s (type: %T)\n", objPkg, obj.Name(), obj)
+		}
+		return symbols.Symbol{}, false
+	}
+
+	key := fmt.Sprintf("%s::%s::%s", objPkg, obj.Name(), kind)
+	sym, found := lookup[key]
+	if debugUsageDetection {
+		if found {
+			fmt.Printf("  [MATCH] %s\n", key)
+		}
+	}
+	return sym, found
 }
 
 func deduplicateUsages(usages []Usage) []Usage {

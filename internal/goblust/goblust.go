@@ -64,8 +64,18 @@ func Run(base, head string, dryRun, debugFiles, debugSymbols, debugTests, debugT
 
 	uniquePackages := deduplicate(packages)
 
+	// Find packages that depend on changed packages (importers)
+	dependentPackages, err := findDependentPackages(uniquePackages)
+	if err != nil {
+		// Non-fatal: continue with just the direct packages
+		dependentPackages = []string{}
+	}
+
+	// Combine direct packages and dependent packages for test discovery
+	allPackagesToTest := deduplicate(append(uniquePackages, dependentPackages...))
+
 	// Discover tests from packages (always needed for selection)
-	discoveredTests, err := tests.DiscoverFromPackages(uniquePackages)
+	discoveredTests, err := tests.DiscoverFromPackages(allPackagesToTest)
 	if err != nil {
 		return fmt.Errorf("failed to discover tests: %w", err)
 	}
@@ -265,4 +275,53 @@ func executeSelectedTests(selected []selector.TestID) error {
 	}
 
 	return nil
+}
+
+func findDependentPackages(changedPackages []string) ([]string, error) {
+	if len(changedPackages) == 0 {
+		return nil, nil
+	}
+
+	// Get all packages in the module
+	cmd := exec.Command("go", "list", "./...")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("go list failed: %w", err)
+	}
+
+	allPackages := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(allPackages) == 1 && allPackages[0] == "" {
+		return nil, nil
+	}
+
+	changedSet := make(map[string]bool)
+	for _, pkg := range changedPackages {
+		changedSet[pkg] = true
+	}
+
+	var dependentPackages []string
+
+	for _, pkg := range allPackages {
+		// Skip if this is one of the changed packages
+		if changedSet[pkg] {
+			continue
+		}
+
+		// Get imports of this package
+		cmd := exec.Command("go", "list", "-f", "{{range .Imports}}{{.}}\n{{end}}{{range .TestImports}}{{.}}\n{{end}}", pkg)
+		output, err := cmd.Output()
+		if err != nil {
+			continue
+		}
+
+		imports := strings.Split(strings.TrimSpace(string(output)), "\n")
+		for _, imp := range imports {
+			if changedSet[imp] {
+				dependentPackages = append(dependentPackages, pkg)
+				break
+			}
+		}
+	}
+
+	return dependentPackages, nil
 }

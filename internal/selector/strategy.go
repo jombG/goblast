@@ -82,7 +82,7 @@ func (s *PackageFallbackStrategy) Name() string {
 func (s *PackageFallbackStrategy) Select(changedSymbols []symbols.Symbol, discoveredTests []tests.Test, usages []usage.Usage) []TestID {
 	var selected []TestID
 
-	// First, collect tests with direct usages
+	// First, collect tests with direct usages (from ANY package, including dependents)
 	usedTests := make(map[string]map[string]bool) // pkg -> testName -> exists
 	for _, u := range usages {
 		pkg := findTestPackage(u.TestName, discoveredTests)
@@ -95,23 +95,25 @@ func (s *PackageFallbackStrategy) Select(changedSymbols []symbols.Symbol, discov
 		usedTests[pkg][u.TestName] = true
 	}
 
+	// Add all tests with direct usages (from any package)
+	for pkg, tests := range usedTests {
+		for testName := range tests {
+			selected = append(selected, TestID{
+				Package:  pkg,
+				TestName: testName,
+			})
+		}
+	}
+
 	// Collect packages with changes
 	changedPackages := make(map[string]bool)
 	for _, sym := range changedSymbols {
 		changedPackages[sym.Package] = true
 	}
 
-	// For each changed package
+	// For each changed package that has no specific usages - run all tests (fallback)
 	for pkg := range changedPackages {
-		if len(usedTests[pkg]) > 0 {
-			// Package has specific test usages - use those
-			for testName := range usedTests[pkg] {
-				selected = append(selected, TestID{
-					Package:  pkg,
-					TestName: testName,
-				})
-			}
-		} else {
+		if len(usedTests[pkg]) == 0 {
 			// No specific usages detected - run all tests in package (fallback)
 			for _, test := range discoveredTests {
 				if test.Package == pkg {
