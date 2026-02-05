@@ -57,22 +57,6 @@ func findTestFilesInPackage(packagePath string) ([]string, error) {
 	return matches, nil
 }
 
-func DiscoverFromFiles(files []string) ([]Test, error) {
-	var allTests []Test
-
-	testFiles := filterTestFiles(files)
-
-	for _, file := range testFiles {
-		tests, err := discoverFromFile(file)
-		if err != nil {
-			continue
-		}
-		allTests = append(allTests, tests...)
-	}
-
-	return allTests, nil
-}
-
 func filterTestFiles(files []string) []string {
 	var testFiles []string
 	for _, file := range files {
@@ -150,7 +134,6 @@ func extractTest(decl *ast.FuncDecl, packagePath string, fset *token.FileSet, fi
 func getPackageImportPath(filePath string) string {
 	dir := filepath.Dir(filePath)
 
-	// Determine the correct path format for go list
 	var listPath string
 	if filepath.IsAbs(dir) {
 		listPath = dir
@@ -161,7 +144,6 @@ func getPackageImportPath(filePath string) string {
 	cmd := exec.Command("go", "list", "-f", "{{.ImportPath}}", listPath)
 	output, err := cmd.Output()
 	if err != nil {
-		// Fallback to directory name
 		return filepath.Base(dir)
 	}
 	return strings.TrimSpace(string(output))
